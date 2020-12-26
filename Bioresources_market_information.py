@@ -1,9 +1,7 @@
 import pandas as pd
 from itertools import combinations
 import Bioresources_market_info_functions as bio
-import copy
-import sys
-
+import copy, sys
 
 # ----------- PING COMPANIES' WEBSITES TO EXTRACT THEIR DATA -------------------------------
 # --------- This is saved in a separate folder. So doesn't automatically get picked up below  -----
@@ -15,13 +13,11 @@ except:
 
 # ------------  INITIATION --------------------------------------------------
 companies_WwTW = ['ANH','HDD','NES','SRN','SVE', 'SWB', 'TMS', 'UUW','WSH', 'WSX', 'YKY']
-poo = copy.copy(companies_WwTW)
-poo.remove('HDD')
-print(poo)
-companies_STC =  ['ANH',      'NES','SRN','SVE', 'SWB', 'TMS', 'UUW','WSH', 'WSX', 'YKY'] # HDD has no STCs
+companies_STC = copy.copy(companies_WwTW)
+companies_STC.remove('HDD') # HDD Have no STCs
 companies_dict = {'ANH': 'Anglian Water', 'HDD': 'Hafren Dyfrdwy', 'NES': 'Northumbrian Water',
                      'SRN': 'Southern Water', 'SVE': 'Severn Trent Water', 'SWB': 'South West Water',
-                     'TMS': 'Thames Water', 'UUW': 'United Utilities', 'WSH': 'Dŵr Cymru',
+                     'TMS': 'Thames Water', 'UUW': 'United Utilities', 'WSH': 'Dwr Cymru',
                      'WSX': 'Wessex Water', 'YKY': 'Yorkshire Water'}
 
 df_small = pd.DataFrame()
@@ -42,7 +38,7 @@ headers_WwTW = pd.read_excel(r'C:\Users\Jacob\OneDrive\Python\Pycharm\Bioresourc
                              nrows=1)
 
 headers_STC = pd.read_excel(r'C:\Users\Jacob\OneDrive\Python\Pycharm\Bioresources market information\inputs\Ofwat_template.xlsx',
-                            header=None, sheet_name='STC', skiprows=4, usecols=('D:F, H:O, Q:S, U:X'), nrows=1)
+                            header=None, sheet_name='STC', skiprows=4, usecols=('D:F, H:O, Q:S, U:X, Z'), nrows=1)
 
 
 # Whack the data together into a big data from using a for loop
@@ -52,7 +48,7 @@ for company in companies_WwTW:
     df_temp0 = bio.data_mung(df_temp0, headers_small, company)
     df_small = pd.concat([df_small, df_temp0])
 
-    # This creates a pair of lat/long coordinates to enable analysis later
+# This creates a pair of lat/long coordinates to enable analysis later
     df_small['Coordinates'] = [[df_small['WwTW location (grid ref latitude)'][i],
                               df_small['WwTW location (grid ref longitude)'][i]]
                               for i in range(len(df_small.index))]
@@ -77,7 +73,7 @@ for company in companies_WwTW:
 
 for company in companies_STC:
     path = fr'C:\Users\Jacob\OneDrive\Python\Pycharm\Bioresources market information\inputs\\{company}.xlsx'
-    df_temp2 = pd.read_excel(path, header=None, sheet_name='STC', skiprows=10, usecols=('D:F, H:O, Q:S, U:X'))
+    df_temp2 = pd.read_excel(path, header=None, sheet_name='STC', skiprows=10, usecols=('D:F, H:O, Q:S, U:X, Z'))
     df_temp2 = bio.data_mung(df_temp2, headers_STC, company)
     df_STC = pd.concat([df_STC, df_temp2])
 
@@ -107,13 +103,22 @@ for i in [7, 9, 12, 13, 14, 15, 16, 17]:
 #                         'Y 4% - 8%, N 19%-27%': 'Yes',
 #                         'Y (Via Inlet)': 'Yes'})
 
+# Address the double counting issue by only calculating volume going throught treatment centres (e.g. not de-watering centres)
+df_STC['STC Only End product volume per year'] = df_STC.apply(lambda row: row['End product volume per year']
+                                  if row['Type of site'] == 'Treatment'
+                                  else 0, axis=1)
+
 df_small.reset_index(drop=True).to_csv('Outputs/bioresources_market_information_small.csv')
 df_STC.reset_index(drop=True).to_csv('Outputs/bioresources_market_information_STC.csv')
 df_WwTW.reset_index(drop=True).to_csv('Outputs/bioresources_market_information_WwTW.csv')
 
+bio.Concat()
+
+
+
 sys.exit()
 
-
+##################################################################################################
 
 # 2. This creates a set of possible company combinations
 company_combo = list(combinations(companies_STC, 2))
