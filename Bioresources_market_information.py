@@ -2,16 +2,18 @@ import pandas as pd
 from itertools import combinations
 import Bioresources_market_info_functions as bio
 import copy, sys
+import sqlite3
 
 # ----------- PING COMPANIES' WEBSITES TO EXTRACT THEIR DATA -------------------------------
 # --------- This is saved in a separate folder. So doesn't automatically get picked up below  -----
-try:
-    bio.auto_download()
-except:
-    print('Auto-download hit a snag.')
+#try:
+#    bio.auto_download()
+#except:
+#    print('Auto-download hit a snag.')
 
 
 # ------------  INITIATION --------------------------------------------------
+print("Initiating and creating table headers")
 companies_WwTW = ['ANH','HDD','NES','SRN','SVE', 'SWB', 'TMS', 'UUW','WSH', 'WSX', 'YKY']
 companies_STC = copy.copy(companies_WwTW)
 companies_STC.remove('HDD') # HDD Have no STCs
@@ -29,21 +31,22 @@ df_mega = pd.DataFrame()
 
 # -----------  GRAB THE RELEVANT HEADERS TO BE USED IN THE DATAFRAME -------------------
 # Grab the column names from the Anglian sheet (TMS and possibly others had changed there's, causing problems)
-headers_small = pd.read_excel(r'C:\Users\Jacob\OneDrive\Python\Pycharm\Bioresources market information\inputs\Ofwat_template.xlsx',
+headers_small = pd.read_excel(r'inputs\Ofwat_template.xlsx',
                              header=None, sheet_name='Small WwTW', skiprows=6, usecols=('D:F, H:I'),
                              nrows=1)
 
-headers_WwTW = pd.read_excel(r'C:\Users\Jacob\OneDrive\Python\Pycharm\Bioresources market information\inputs\Ofwat_template.xlsx',
+headers_WwTW = pd.read_excel(r'inputs\Ofwat_template.xlsx',
                              header=None, sheet_name='WwTW', skiprows=5, usecols=('D:F, H:M, O:R, T:X'),
                              nrows=1)
 
-headers_STC = pd.read_excel(r'C:\Users\Jacob\OneDrive\Python\Pycharm\Bioresources market information\inputs\Ofwat_template.xlsx',
+headers_STC = pd.read_excel(r'inputs\Ofwat_template.xlsx',
                             header=None, sheet_name='STC', skiprows=4, usecols=('D:F, H:O, Q:S, U:X, Z'), nrows=1)
 
 
 # Whack the data together into a big data from using a for loop
+print("Creating dataframe of small WwTWs")
 for company in companies_WwTW:
-    path = fr'C:\Users\Jacob\OneDrive\Python\Pycharm\Bioresources market information\inputs\\{company}.xlsx'
+    path = fr'inputs\\{company}.xlsx'
     df_temp0 = pd.read_excel(path, header=None, sheet_name='Small WwTW', skiprows=10, usecols=('D:F, H:I') )
     df_temp0 = bio.data_mung(df_temp0, headers_small, company)
     df_small = pd.concat([df_small, df_temp0])
@@ -57,9 +60,9 @@ for company in companies_WwTW:
 
 
 
-
+print("Creating dataframe of WwTWs")
 for company in companies_WwTW:
-    path = fr'C:\Users\Jacob\OneDrive\Python\Pycharm\Bioresources market information\inputs\\{company}.xlsx'
+    path = fr'inputs\\{company}.xlsx'
     df_temp = pd.read_excel(path, header=None, sheet_name='WwTW', skiprows=10, usecols=('D:F, H:M, O:R, T:X'), )
     df_temp = bio.data_mung(df_temp, headers_WwTW, company)
     df_WwTW = pd.concat([df_WwTW, df_temp])
@@ -71,8 +74,10 @@ for company in companies_WwTW:
 
     df_WwTW['Company Name'] = df_WwTW['Company'].map(companies_dict)
 
+
+print("Creating dataframe of STCs")
 for company in companies_STC:
-    path = fr'C:\Users\Jacob\OneDrive\Python\Pycharm\Bioresources market information\inputs\\{company}.xlsx'
+    path = fr'C:\Users\Alex\OneDrive\Python\Pycharm\Bioresources market information\inputs\\{company}.xlsx'
     df_temp2 = pd.read_excel(path, header=None, sheet_name='STC', skiprows=10, usecols=('D:F, H:O, Q:S, U:X, Z'))
     df_temp2 = bio.data_mung(df_temp2, headers_STC, company)
     df_STC = pd.concat([df_STC, df_temp2])
@@ -108,13 +113,19 @@ df_STC['STC Only End product volume per year'] = df_STC.apply(lambda row: row['E
                                   if row['Type of site'] == 'Treatment'
                                   else 0, axis=1)
 
+# Export the dataframes to csv files, including the combined (cut down) file
+print("Exporting to CSV files")
 df_small.reset_index(drop=True).to_csv('Outputs/bioresources_market_information_small.csv')
 df_STC.reset_index(drop=True).to_csv('Outputs/bioresources_market_information_STC.csv')
 df_WwTW.reset_index(drop=True).to_csv('Outputs/bioresources_market_information_WwTW.csv')
+df_concat = bio.Concat()
 
-bio.Concat()
-
-
+# Export the dataframes to sql database (exporting directly from dataframe, rather than csvs, created an error)
+print("Exporting to SQL database")
+bio.csv_to_sql_converter('Outputs/bioresources_market_information_small.csv', 'small')
+bio.csv_to_sql_converter('Outputs/bioresources_market_information_STC.csv', 'STC')
+bio.csv_to_sql_converter('Outputs/bioresources_market_information_WwTW.csv', 'WwTW')
+bio.csv_to_sql_converter('Outputs/bioresources_market_information_Concat.csv', 'concat')
 
 sys.exit()
 

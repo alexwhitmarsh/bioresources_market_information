@@ -1,4 +1,4 @@
-from geopy import distance
+#from geopy import distance
 import pandas as pd
 import requests
 
@@ -62,7 +62,6 @@ def distance_pairings(df, company1, company2, site_name_key):
 def Concat():
     """This function concatenates all the three files from the main py file."""
     import pandas as pd
-    import numpy as np
     df_small = pd.read_csv('Outputs/bioresources_market_information_small.csv')
     df_STC = pd.read_csv('Outputs/bioresources_market_information_STC.csv')
     df_WwTW = pd.read_csv('Outputs/bioresources_market_information_WwTW.csv')
@@ -125,3 +124,9 @@ def Concat():
     df.reset_index(inplace=True, drop=True)
     df['Type of site'].fillna(value='Wastewater Treatment Works', inplace=True)
     df.to_csv('Outputs/bioresources_market_information_Concat.csv')
+
+def csv_to_sql_converter(csv_path, table_name):
+    import sqlite3
+    conn = sqlite3.connect(r'Outputs\bioresources.db')
+    df = pd.read_csv(csv_path)
+    df.to_sql(table_name, con=conn, if_exists='replace', index=False)
