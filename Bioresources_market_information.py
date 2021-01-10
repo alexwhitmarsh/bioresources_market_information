@@ -1,7 +1,6 @@
 import pandas as pd
-from itertools import combinations
 import Bioresources_market_info_functions as bio
-import copy, sys
+import copy
 import sqlite3
 
 # ----------- PING COMPANIES' WEBSITES TO EXTRACT THEIR DATA -------------------------------
@@ -25,8 +24,6 @@ companies_dict = {'ANH': 'Anglian Water', 'HDD': 'Hafren Dyfrdwy', 'NES': 'North
 df_small = pd.DataFrame()
 df_WwTW = pd.DataFrame()
 df_STC = pd.DataFrame()
-df4 = pd.DataFrame()
-df_mega = pd.DataFrame()
 
 
 # -----------  GRAB THE RELEVANT HEADERS TO BE USED IN THE DATAFRAME -------------------
@@ -46,7 +43,7 @@ headers_STC = pd.read_excel(r'inputs\Ofwat_template.xlsx',
 # Whack the data together into a big data from using a for loop
 print("Creating dataframe of small WwTWs")
 for company in companies_WwTW:
-    path = fr'inputs\\{company}.xlsx'
+    path = fr'inputs\{company}.xlsx'
     df_temp0 = pd.read_excel(path, header=None, sheet_name='Small WwTW', skiprows=10, usecols=('D:F, H:I') )
     df_temp0 = bio.data_mung(df_temp0, headers_small, company)
     df_small = pd.concat([df_small, df_temp0])
@@ -114,82 +111,22 @@ df_STC['STC Only End product volume per year'] = df_STC.apply(lambda row: row['E
                                   else 0, axis=1)
 
 # Export the dataframes to csv files, including the combined (cut down) file
-print("Exporting to CSV files")
-df_small.reset_index(drop=True).to_csv('Outputs/bioresources_market_information_small.csv')
-df_STC.reset_index(drop=True).to_csv('Outputs/bioresources_market_information_STC.csv')
-df_WwTW.reset_index(drop=True).to_csv('Outputs/bioresources_market_information_WwTW.csv')
 df_concat = bio.Concat()
 
 # Export the dataframes to sql database (exporting directly from dataframe, rather than csvs, created an error)
 print("Exporting to SQL database")
-bio.csv_to_sql_converter('Outputs/bioresources_market_information_small.csv', 'small')
-bio.csv_to_sql_converter('Outputs/bioresources_market_information_STC.csv', 'STC')
-bio.csv_to_sql_converter('Outputs/bioresources_market_information_WwTW.csv', 'WwTW')
-bio.csv_to_sql_converter('Outputs/bioresources_market_information_Concat.csv', 'concat')
 
-sys.exit()
+conn = sqlite3.connect(r'Outputs\bioresources.db')
 
-##################################################################################################
+# SQL struggled with the list-type nature of these columns, so altered to text
+df_small['Coordinates'] = df_small['Coordinates'].map(str)
+df_WwTW['Coordinates'] = df_WwTW['Coordinates'].map(str)
+df_STC['Coordinates'] = df_STC['Coordinates'].map(str)
 
-# 2. This creates a set of possible company combinations
-company_combo = list(combinations(companies_STC, 2))
-comp1 = [company_combo[i][0] for i in range(len(company_combo))] # This extracts the first company in the company combo
-comp2 = [company_combo[i][1] for i in range(len(company_combo))] # This extracts the second company in the company combo
-
-# This loop applies the 'distance pairings' function to the relevant dataframe to each company combo
-for i, j in zip(comp1, comp2):
-    print(i, j)
-    df = bio.distance_pairings(df_STC, i, j, "Sludge Treatment Centre (STC) name").sort_values(by=['Distance'])
-    df_mega = pd.concat([df_mega, df])
-
-df_mega.to_csv('Outputs/bioresources_market_information_STC_Pairings_MEGA.csv')
+df_small.reset_index(drop=True).to_sql('small', conn, if_exists='replace', index=False)
+df_WwTW.reset_index(drop=True).to_sql('WwTW', conn, if_exists='replace', index=False)
+df_STC.reset_index(drop=True).to_sql('STC', conn, if_exists='replace', index=False)
+df_concat.to_sql('concat', conn, if_exists='replace', index=False)
 
 
 
-
-"""
-for i in range(len(lst)):
-    df3[lst[i][0]] = df.loc[lst[i][0], 'Coordinates']
-
-for i in df_STC['WwTW site name']:
-    if i in df_WwTW['WwTW site name'].values:
-        print(i)
-
-# Group by analysis
-poo= df.groupby(['Company']).agg(['max', 'mean', 'min']).transpose()
-poo2 = poo.swaplevel(0).sort_index(axis=0)
-#print(poo2)
-
-
-# Visualisaitons- pick and choose these
-
-# Distribution of quantity of sludge produced per year
-plt.hist(df.iloc[:,3].loc['ANH'], bins=50, alpha=0.5, density=True, label='ANH')
-plt.hist(df.iloc[:,3].loc['SVE'], bins=50, alpha=0.5, density=True, label='SVT')
-plt.hist(df.iloc[:,3].loc['TMS'], bins=50, alpha=0.5, density=True, label='TMS')
-plt.legend()
-plt.xlabel('quantity (TDS)')
-plt.title('Distribution of quantity of sludge produced per year')
-plt.show()
-
-
-sns.catplot(data=df, x='Company', y= 'Quantity of raw sludge produced per year (only sites where sludge leaves assets under network plus price control) ',
-            estimator=np.median, kind='bar', hue='Inlet Screened <=6mm', col='Sludge screened')
-plt.ylabel('Median')
-plt.show()
-
-
-sns.barplot(data=df, x='Company', y='Quantity of raw sludge produced per year (only sites where sludge leaves assets under network plus price control) ',
-            estimator=np.median)
-plt.ylabel('Median')
-plt.show()
-
-sns.violinplot(data=df, x='Company', y='Quantity of raw sludge produced per year (only sites where sludge leaves assets under network plus price control) ')
-plt.show()
-
-
-sns.kdeplot(df.iloc[:,3].loc['ANH'])
-sns.kdeplot(df.iloc[:,3].loc['SVT'])
-sns.kdeplot(df.iloc[:,3].loc['TMS'])
-plt.show()
-"""
